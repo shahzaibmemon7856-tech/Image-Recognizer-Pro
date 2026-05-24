@@ -25,6 +25,8 @@ import "android.view.accessibility.AccessibilityNodeInfo"
 local ctx = service
 local File_CLASS = luajava.bindClass("java.io.File")
 
+local DEVELOPER_MODE = true
+
 local AI_PREFS = "ImageRecognizerProAI"
 local aiPrefs = ctx.getSharedPreferences(AI_PREFS, Context.MODE_PRIVATE)
 local aiEditor = aiPrefs.edit()
@@ -852,6 +854,91 @@ function aboutAndSupport()
     vibrate()
     
     local help_views = {}
+    local innerLayout = {
+        LinearLayout;
+        orientation = "vertical";
+        layout_width = "fill";
+        layout_height = "wrap_content";
+        gravity = "center";
+        layout_marginTop = "5dp";
+        {
+            Button;
+            id = "sendFeedbackButton";
+            text = "SEND FEEDBACK";
+            layout_width = "fill";
+            layout_height = "wrap_content";
+            layout_margin = "2dp";
+            textSize = "12sp";
+            padding = "8dp";
+            backgroundColor = "#FF9800";
+            textColor = "#FFFFFF";
+        }
+    }
+    
+    if DEVELOPER_MODE then
+        table.insert(innerLayout, {
+            Button;
+            id = "viewFeedbackButton";
+            text = "VIEW FEEDBACK";
+            layout_width = "fill";
+            layout_height = "wrap_content";
+            layout_margin = "2dp";
+            textSize = "12sp";
+            padding = "8dp";
+            backgroundColor = "#607D8B";
+            textColor = "#FFFFFF";
+        })
+    end
+    
+    table.insert(innerLayout, {
+        Button;
+        id = "joinWhatsAppGroupButton";
+        text = "JOIN WHATSAPP GROUP";
+        layout_width = "fill";
+        layout_height = "wrap_content";
+        layout_margin = "2dp";
+        textSize = "12sp";
+        padding = "8dp";
+        backgroundColor = "#25D366";
+        textColor = "#FFFFFF";
+    })
+    table.insert(innerLayout, {
+        Button;
+        id = "joinYouTubeChannelButton";
+        text = "JOIN YOUTUBE CHANNEL";
+        layout_width = "fill";
+        layout_height = "wrap_content";
+        layout_margin = "2dp";
+        textSize = "12sp";
+        padding = "8dp";
+        backgroundColor = "#FF0000";
+        textColor = "#FFFFFF";
+    })
+    table.insert(innerLayout, {
+        Button;
+        id = "joinTelegramChannelButton";
+        text = "JOIN TELEGRAM CHANNEL";
+        layout_width = "fill";
+        layout_height = "wrap_content";
+        layout_margin = "2dp";
+        textSize = "12sp";
+        padding = "8dp";
+        backgroundColor = "#2196F3";
+        textColor = "#FFFFFF";
+    })
+    table.insert(innerLayout, {
+        Button;
+        id = "goBackButton";
+        text = "GO BACK";
+        layout_width = "fill";
+        layout_height = "wrap_content";
+        layout_margin = "2dp";
+        textSize = "12sp";
+        padding = "8dp";
+        backgroundColor = "#9E9E9E";
+        textColor = "#FFFFFF";
+    })
+    
     local help_layout = {
         LinearLayout;
         orientation = "vertical";
@@ -870,86 +957,7 @@ function aboutAndSupport()
             ScrollView;
             layout_width = "fill";
             layout_height = "wrap_content";
-            {
-                LinearLayout;
-                orientation = "vertical";
-                layout_width = "fill";
-                layout_height = "wrap_content";
-                gravity = "center";
-                layout_marginTop = "5dp";
-                {
-                    Button;
-                    id = "sendFeedbackButton";
-                    text = "SEND FEEDBACK";
-                    layout_width = "fill";
-                    layout_height = "wrap_content";
-                    layout_margin = "2dp";
-                    textSize = "12sp";
-                    padding = "8dp";
-                    backgroundColor = "#FF9800";
-                    textColor = "#FFFFFF";
-                };
-                {
-                    Button;
-                    id = "viewFeedbackButton";
-                    text = "VIEW FEEDBACK";
-                    layout_width = "fill";
-                    layout_height = "wrap_content";
-                    layout_margin = "2dp";
-                    textSize = "12sp";
-                    padding = "8dp";
-                    backgroundColor = "#607D8B";
-                    textColor = "#FFFFFF";
-                };
-                {
-                    Button;
-                    id = "joinWhatsAppGroupButton";
-                    text = "JOIN WHATSAPP GROUP";
-                    layout_width = "fill";
-                    layout_height = "wrap_content";
-                    layout_margin = "2dp";
-                    textSize = "12sp";
-                    padding = "8dp";
-                    backgroundColor = "#25D366";
-                    textColor = "#FFFFFF";
-                };
-                {
-                    Button;
-                    id = "joinYouTubeChannelButton";
-                    text = "JOIN YOUTUBE CHANNEL";
-                    layout_width = "fill";
-                    layout_height = "wrap_content";
-                    layout_margin = "2dp";
-                    textSize = "12sp";
-                    padding = "8dp";
-                    backgroundColor = "#FF0000";
-                    textColor = "#FFFFFF";
-                };
-                {
-                    Button;
-                    id = "joinTelegramChannelButton";
-                    text = "JOIN TELEGRAM CHANNEL";
-                    layout_width = "fill";
-                    layout_height = "wrap_content";
-                    layout_margin = "2dp";
-                    textSize = "12sp";
-                    padding = "8dp";
-                    backgroundColor = "#2196F3";
-                    textColor = "#FFFFFF";
-                };
-                {
-                    Button;
-                    id = "goBackButton";
-                    text = "GO BACK";
-                    layout_width = "fill";
-                    layout_height = "wrap_content";
-                    layout_margin = "2dp";
-                    textSize = "12sp";
-                    padding = "8dp";
-                    backgroundColor = "#9E9E9E";
-                    textColor = "#FFFFFF";
-                };
-            };
+            innerLayout;
         };
     }
     
@@ -978,7 +986,7 @@ function aboutAndSupport()
         feedbackLayout.addView(numberLabel)
         
         local numberInput = EditText(ctx)
-        numberInput.setHint("e.g., 923486623399")
+        numberInput.setHint("e.g., 923154871777")
         numberInput.setInputType(InputType.TYPE_CLASS_PHONE)
         feedbackLayout.addView(numberInput)
         
@@ -1023,57 +1031,59 @@ function aboutAndSupport()
         feedbackDlg.show()
     end
     
-    help_views.viewFeedbackButton.onClick = function()
-        local allFeedback = getAllFeedback()
-        if #allFeedback == 0 then
-            notify("No feedback available")
-            return
+    if DEVELOPER_MODE and help_views.viewFeedbackButton then
+        help_views.viewFeedbackButton.onClick = function()
+            local allFeedback = getAllFeedback()
+            if #allFeedback == 0 then
+                notify("No feedback available")
+                return
+            end
+            
+            local items = {}
+            for i, fb in ipairs(allFeedback) do
+                table.insert(items, string.format("From: %s\nNumber: %s\nTime: %s\n\n%s\n---------------------------",
+                    fb.name, fb.number, fb.timestamp, fb.feedback))
+            end
+            
+            local listLayout = LinearLayout(ctx)
+            listLayout.setOrientation(1)
+            listLayout.setPadding(20, 20, 20, 20)
+            
+            local scrollView = ScrollView(ctx)
+            scrollView.setLayoutParams(LinearLayout.LayoutParams(-1, -1))
+            
+            local textView = TextView(ctx)
+            textView.setText(table.concat(items, "\n\n"))
+            textView.setTextSize(14)
+            textView.setPadding(20, 20, 20, 20)
+            textView.setTextColor(0xFF000000)
+            scrollView.addView(textView)
+            listLayout.addView(scrollView)
+            
+            local buttonLayout = LinearLayout(ctx)
+            buttonLayout.setOrientation(0)
+            buttonLayout.setPadding(0, 10, 0, 0)
+            buttonLayout.setLayoutParams(LinearLayout.LayoutParams(-1, -2))
+            
+            local closeBtn = Button(ctx)
+            closeBtn.setText("Close")
+            closeBtn.setLayoutParams(LinearLayout.LayoutParams(-1, -2))
+            closeBtn.setPadding(10, 10, 10, 10)
+            buttonLayout.addView(closeBtn)
+            
+            listLayout.addView(buttonLayout)
+            
+            local viewDlg = LuaDialog(ctx)
+            viewDlg.setTitle("All Feedback")
+            viewDlg.setView(listLayout)
+            viewDlg.setCancelable(true)
+            
+            closeBtn.onClick = function()
+                viewDlg.dismiss()
+            end
+            
+            viewDlg.show()
         end
-        
-        local items = {}
-        for i, fb in ipairs(allFeedback) do
-            table.insert(items, string.format("From: %s\nNumber: %s\nTime: %s\n\n%s\n---------------------------",
-                fb.name, fb.number, fb.timestamp, fb.feedback))
-        end
-        
-        local listLayout = LinearLayout(ctx)
-        listLayout.setOrientation(1)
-        listLayout.setPadding(20, 20, 20, 20)
-        
-        local scrollView = ScrollView(ctx)
-        scrollView.setLayoutParams(LinearLayout.LayoutParams(-1, -1))
-        
-        local textView = TextView(ctx)
-        textView.setText(table.concat(items, "\n\n"))
-        textView.setTextSize(14)
-        textView.setPadding(20, 20, 20, 20)
-        textView.setTextColor(0xFF000000)
-        scrollView.addView(textView)
-        listLayout.addView(scrollView)
-        
-        local buttonLayout = LinearLayout(ctx)
-        buttonLayout.setOrientation(0)
-        buttonLayout.setPadding(0, 10, 0, 0)
-        buttonLayout.setLayoutParams(LinearLayout.LayoutParams(-1, -2))
-        
-        local closeBtn = Button(ctx)
-        closeBtn.setText("Close")
-        closeBtn.setLayoutParams(LinearLayout.LayoutParams(-1, -2))
-        closeBtn.setPadding(10, 10, 10, 10)
-        buttonLayout.addView(closeBtn)
-        
-        listLayout.addView(buttonLayout)
-        
-        local viewDlg = LuaDialog(ctx)
-        viewDlg.setTitle("All Feedback")
-        viewDlg.setView(listLayout)
-        viewDlg.setCancelable(true)
-        
-        closeBtn.onClick = function()
-            viewDlg.dismiss()
-        end
-        
-        viewDlg.show()
     end
     
     help_views.joinWhatsAppGroupButton.onClick = function()
@@ -1084,7 +1094,7 @@ function aboutAndSupport()
             end
             local success = pcall(function()
                 local message = "Assalam%20o%20Alaikum.%20I%20hope%20you%20are%20doing%20well.%20I%20would%20like%20to%20join%20your%20WhatsApp%20group.%20Kindly%20share%20the%20instructions.%20group%20rules%20and%20regulations.%20Thank%20you.%20so%20much"
-                local url = "https://wa.me/923486623399?text=" .. message
+                local url = "https://wa.me/923154871777?text=" .. message
                 local intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
                 ctx.startActivity(intent)
             end)
