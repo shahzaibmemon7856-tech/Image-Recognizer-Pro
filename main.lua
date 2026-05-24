@@ -29,6 +29,10 @@ local AI_PREFS = "ImageRecognizerProAI"
 local aiPrefs = ctx.getSharedPreferences(AI_PREFS, Context.MODE_PRIVATE)
 local aiEditor = aiPrefs.edit()
 
+local FEEDBACK_PREFS = "UserFeedback"
+local feedbackPrefs = ctx.getSharedPreferences(FEEDBACK_PREFS, Context.MODE_PRIVATE)
+local feedbackEditor = feedbackPrefs.edit()
+
 local GEMINI_MODELS = {
     "Gemini 2.5 Flash",
     "Gemini 2.5 Pro",
@@ -80,6 +84,32 @@ function getGeminiModel() return aiPrefs.getString("gemini_model", "Gemini 2.5 F
 function saveGeminiModel(model) aiEditor.putString("gemini_model", model); aiEditor.commit() end
 function getSelectedRecognizeOption() return aiPrefs.getString("rec_option", "Image Process") end
 function saveSelectedRecognizeOption(opt) aiEditor.putString("rec_option", opt); aiEditor.commit() end
+
+function saveFeedback(name, number, feedback)
+    local feedbackList = {}
+    local existing = feedbackPrefs.getString("feedback_list", "[]")
+    local ok, decoded = pcall(cjson.decode, existing)
+    if ok and decoded then
+        feedbackList = decoded
+    end
+    table.insert(feedbackList, {
+        name = name,
+        number = number,
+        feedback = feedback,
+        timestamp = os.date("%Y-%m-%d %H:%M:%S")
+    })
+    feedbackEditor.putString("feedback_list", cjson.encode(feedbackList))
+    feedbackEditor.commit()
+end
+
+function getAllFeedback()
+    local existing = feedbackPrefs.getString("feedback_list", "[]")
+    local ok, decoded = pcall(cjson.decode, existing)
+    if ok and decoded then
+        return decoded
+    end
+    return {}
+end
 
 function getCurrentFocusedItem()
     local focusedNode = nil
@@ -830,19 +860,11 @@ function aboutAndSupport()
         layout_height = "wrap";
         {
             TextView;
-            text = "Image Recognizer Pro provides AI-powered image recognition using Google Gemini AI.\n\nFeatures:\n• 4 recognition modes (Image Process, Current Screen, Current Item, Extract Text Only)\n• Multi-language support (18+ languages)\n• Google Gemini AI integration\n• Ask questions about your images\n\nJoin our community for more useful tools, feedback, and suggestions.";
+            text = "Image Recognizer Pro provides AI-powered image recognition using Google Gemini AI.\n\nFeatures:\n• 4 recognition modes (Image Process, Current Screen, Current Item, Extract Text Only)\n• Multi-language support (18+ languages)\n• Google Gemini AI integration\n• Ask questions about your images\n\nFor support or feedback, please use the buttons below.";
             textSize = 14;
             textColor = "#666666";
             gravity = "left";
             paddingBottom = "20dp";
-        };
-        {
-            TextView;
-            text = "Join Our Community";
-            textSize = 16;
-            textColor = "#000000";
-            gravity = "center";
-            paddingBottom = "10dp";
         };
         {
             ScrollView;
@@ -855,6 +877,30 @@ function aboutAndSupport()
                 layout_height = "wrap_content";
                 gravity = "center";
                 layout_marginTop = "5dp";
+                {
+                    Button;
+                    id = "sendFeedbackButton";
+                    text = "SEND FEEDBACK";
+                    layout_width = "fill";
+                    layout_height = "wrap_content";
+                    layout_margin = "2dp";
+                    textSize = "12sp";
+                    padding = "8dp";
+                    backgroundColor = "#FF9800";
+                    textColor = "#FFFFFF";
+                };
+                {
+                    Button;
+                    id = "viewFeedbackButton";
+                    text = "VIEW FEEDBACK";
+                    layout_width = "fill";
+                    layout_height = "wrap_content";
+                    layout_margin = "2dp";
+                    textSize = "12sp";
+                    padding = "8dp";
+                    backgroundColor = "#607D8B";
+                    textColor = "#FFFFFF";
+                };
                 {
                     Button;
                     id = "joinWhatsAppGroupButton";
@@ -911,6 +957,124 @@ function aboutAndSupport()
     help_dialog.setTitle("Developer: John Zeb")
     help_dialog.setView(loadlayout(help_layout, help_views))
     help_dialog.setCancelable(true)
+    
+    help_views.sendFeedbackButton.onClick = function()
+        local feedbackLayout = LinearLayout(ctx)
+        feedbackLayout.setOrientation(1)
+        feedbackLayout.setPadding(40, 20, 40, 20)
+        
+        local nameLabel = TextView(ctx)
+        nameLabel.setText("Your Name:")
+        feedbackLayout.addView(nameLabel)
+        
+        local nameInput = EditText(ctx)
+        nameInput.setHint("Enter your name")
+        nameInput.setInputType(InputType.TYPE_CLASS_TEXT)
+        feedbackLayout.addView(nameInput)
+        
+        local numberLabel = TextView(ctx)
+        numberLabel.setText("WhatsApp Number (with country code):")
+        numberLabel.setPadding(0, 15, 0, 0)
+        feedbackLayout.addView(numberLabel)
+        
+        local numberInput = EditText(ctx)
+        numberInput.setHint("e.g., 923486623399")
+        numberInput.setInputType(InputType.TYPE_CLASS_PHONE)
+        feedbackLayout.addView(numberInput)
+        
+        local feedbackLabel = TextView(ctx)
+        feedbackLabel.setText("Feedback:")
+        feedbackLabel.setPadding(0, 15, 0, 0)
+        feedbackLayout.addView(feedbackLabel)
+        
+        local feedbackInput = EditText(ctx)
+        feedbackInput.setHint("Type your feedback here...")
+        feedbackInput.setInputType(InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_MULTI_LINE)
+        feedbackInput.setMinLines(3)
+        feedbackInput.setMaxLines(5)
+        feedbackLayout.addView(feedbackInput)
+        
+        local feedbackDlg = LuaDialog(ctx)
+        feedbackDlg.setTitle("Send Feedback")
+        feedbackDlg.setView(feedbackLayout)
+        feedbackDlg.setPositiveButton("Send", function()
+            local name = nameInput.getText().toString()
+            local number = numberInput.getText().toString()
+            local feedback = feedbackInput.getText().toString()
+            
+            if name == nil or name == "" then
+                notify("Please enter your name")
+                return
+            end
+            if number == nil or number == "" then
+                notify("Please enter your WhatsApp number")
+                return
+            end
+            if feedback == nil or feedback == "" then
+                notify("Please enter your feedback")
+                return
+            end
+            
+            saveFeedback(name, number, feedback)
+            notify("Feedback saved successfully")
+            feedbackDlg.dismiss()
+        end)
+        feedbackDlg.setNegativeButton("Cancel", nil)
+        feedbackDlg.show()
+    end
+    
+    help_views.viewFeedbackButton.onClick = function()
+        local allFeedback = getAllFeedback()
+        if #allFeedback == 0 then
+            notify("No feedback available")
+            return
+        end
+        
+        local items = {}
+        for i, fb in ipairs(allFeedback) do
+            table.insert(items, string.format("From: %s\nNumber: %s\nTime: %s\n\n%s\n---------------------------",
+                fb.name, fb.number, fb.timestamp, fb.feedback))
+        end
+        
+        local listLayout = LinearLayout(ctx)
+        listLayout.setOrientation(1)
+        listLayout.setPadding(20, 20, 20, 20)
+        
+        local scrollView = ScrollView(ctx)
+        scrollView.setLayoutParams(LinearLayout.LayoutParams(-1, -1))
+        
+        local textView = TextView(ctx)
+        textView.setText(table.concat(items, "\n\n"))
+        textView.setTextSize(14)
+        textView.setPadding(20, 20, 20, 20)
+        textView.setTextColor(0xFF000000)
+        scrollView.addView(textView)
+        listLayout.addView(scrollView)
+        
+        local buttonLayout = LinearLayout(ctx)
+        buttonLayout.setOrientation(0)
+        buttonLayout.setPadding(0, 10, 0, 0)
+        buttonLayout.setLayoutParams(LinearLayout.LayoutParams(-1, -2))
+        
+        local closeBtn = Button(ctx)
+        closeBtn.setText("Close")
+        closeBtn.setLayoutParams(LinearLayout.LayoutParams(-1, -2))
+        closeBtn.setPadding(10, 10, 10, 10)
+        buttonLayout.addView(closeBtn)
+        
+        listLayout.addView(buttonLayout)
+        
+        local viewDlg = LuaDialog(ctx)
+        viewDlg.setTitle("All Feedback")
+        viewDlg.setView(listLayout)
+        viewDlg.setCancelable(true)
+        
+        closeBtn.onClick = function()
+            viewDlg.dismiss()
+        end
+        
+        viewDlg.show()
+    end
     
     help_views.joinWhatsAppGroupButton.onClick = function()
         local function performActions()
