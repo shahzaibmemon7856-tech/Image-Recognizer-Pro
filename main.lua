@@ -25,15 +25,9 @@ import "android.view.accessibility.AccessibilityNodeInfo"
 local ctx = service
 local File_CLASS = luajava.bindClass("java.io.File")
 
-local DEVELOPER_MODE = true
-
 local AI_PREFS = "ImageRecognizerProAI"
 local aiPrefs = ctx.getSharedPreferences(AI_PREFS, Context.MODE_PRIVATE)
 local aiEditor = aiPrefs.edit()
-
-local FEEDBACK_PREFS = "UserFeedback"
-local feedbackPrefs = ctx.getSharedPreferences(FEEDBACK_PREFS, Context.MODE_PRIVATE)
-local feedbackEditor = feedbackPrefs.edit()
 
 local GEMINI_MODELS = {
     "Gemini 2.5 Flash",
@@ -86,32 +80,6 @@ function getGeminiModel() return aiPrefs.getString("gemini_model", "Gemini 2.5 F
 function saveGeminiModel(model) aiEditor.putString("gemini_model", model); aiEditor.commit() end
 function getSelectedRecognizeOption() return aiPrefs.getString("rec_option", "Image Process") end
 function saveSelectedRecognizeOption(opt) aiEditor.putString("rec_option", opt); aiEditor.commit() end
-
-function saveFeedback(name, number, feedback)
-    local feedbackList = {}
-    local existing = feedbackPrefs.getString("feedback_list", "[]")
-    local ok, decoded = pcall(cjson.decode, existing)
-    if ok and decoded then
-        feedbackList = decoded
-    end
-    table.insert(feedbackList, {
-        name = name,
-        number = number,
-        feedback = feedback,
-        timestamp = os.date("%Y-%m-%d %H:%M:%S")
-    })
-    feedbackEditor.putString("feedback_list", cjson.encode(feedbackList))
-    feedbackEditor.commit()
-end
-
-function getAllFeedback()
-    local existing = feedbackPrefs.getString("feedback_list", "[]")
-    local ok, decoded = pcall(cjson.decode, existing)
-    if ok and decoded then
-        return decoded
-    end
-    return {}
-end
 
 function getCurrentFocusedItem()
     local focusedNode = nil
@@ -850,95 +818,157 @@ function showAISettingsDialog()
     settingsDlg.show()
 end
 
+function saveFeedbackToFile(name, whatsapp, feedback)
+    local nameStr = tostring(name)
+    local whatsappStr = tostring(whatsapp)
+    local feedbackStr = tostring(feedback)
+    local filesDir = ctx.getFilesDir()
+    local filePath = filesDir.getAbsolutePath() .. "/feedbacks.txt"
+    local file = io.open(filePath, "a")
+    if file then
+        local timestamp = os.date("%Y-%m-%d %H:%M:%S")
+        local entry = string.format("[%s] Name: %s | WhatsApp: %s | Feedback: %s\n", timestamp, nameStr, whatsappStr, feedbackStr)
+        file:write(entry)
+        file:close()
+        return true
+    end
+    return false
+end
+
+function showFeedbackList()
+    local password = "csrofficial123"
+    local pwdLayout = LinearLayout(ctx)
+    pwdLayout.setOrientation(1)
+    pwdLayout.setPadding(30, 20, 30, 20)
+    local pwdLabel = TextView(ctx)
+    pwdLabel.setText("Enter Password to View Feedbacks:")
+    pwdLayout.addView(pwdLabel)
+    local pwdInput = EditText(ctx)
+    pwdInput.setInputType(InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD)
+    pwdInput.setHint("Password")
+    pwdLayout.addView(pwdInput)
+    local pwdBtn = Button(ctx)
+    pwdBtn.setText("OK")
+    pwdLayout.addView(pwdBtn)
+    local pwdDlg = LuaDialog(ctx)
+    pwdDlg.setTitle("Private Access")
+    pwdDlg.setView(pwdLayout)
+    pwdDlg.setCancelable(true)
+    pwdBtn.onClick = function()
+        if pwdInput.getText().toString() == password then
+            pwdDlg.dismiss()
+            local filesDir = ctx.getFilesDir()
+            local filePath = filesDir.getAbsolutePath() .. "/feedbacks.txt"
+            local file = io.open(filePath, "r")
+            if not file then
+                notify("No feedback found")
+                return
+            end
+            local content = file:read("*all")
+            file:close()
+            if not content or content == "" then
+                notify("No feedback entries")
+                return
+            end
+            local dialogLayout = LinearLayout(ctx)
+            dialogLayout.setOrientation(1)
+            dialogLayout.setPadding(30, 20, 30, 20)
+            local scrollView = ScrollView(ctx)
+            scrollView.setLayoutParams(LinearLayout.LayoutParams(-1, 0, 1))
+            local textView = TextView(ctx)
+            textView.setText(content)
+            textView.setTextSize(12)
+            textView.setPadding(10, 10, 10, 10)
+            textView.setTextColor(0xFF000000)
+            scrollView.addView(textView)
+            dialogLayout.addView(scrollView)
+            local closeBtn = Button(ctx)
+            closeBtn.setText("Close")
+            closeBtn.onClick = function()
+                dialogLayout.getParent().getParent().dismiss()
+            end
+            dialogLayout.addView(closeBtn)
+            local dlg = LuaDialog(ctx)
+            dlg.setTitle("All Feedbacks (Private)")
+            dlg.setView(dialogLayout)
+            dlg.setCancelable(true)
+            dlg.show()
+        else
+            notify("Wrong password")
+        end
+    end
+    pwdDlg.show()
+end
+
+function showFeedbackDialog()
+    local feedbackLayout = LinearLayout(ctx)
+    feedbackLayout.setOrientation(1)
+    feedbackLayout.setPadding(30, 20, 30, 20)
+    
+    local nameLabel = TextView(ctx)
+    nameLabel.setText("Your Name:")
+    feedbackLayout.addView(nameLabel)
+    local nameInput = EditText(ctx)
+    nameInput.setHint("Enter your name")
+    feedbackLayout.addView(nameInput)
+    
+    local whatsappLabel = TextView(ctx)
+    whatsappLabel.setText("WhatsApp Number:")
+    feedbackLayout.addView(whatsappLabel)
+    local whatsappInput = EditText(ctx)
+    whatsappInput.setHint("Enter your WhatsApp number")
+    feedbackLayout.addView(whatsappInput)
+    
+    local feedbackLabel = TextView(ctx)
+    feedbackLabel.setText("Feedback:")
+    feedbackLayout.addView(feedbackLabel)
+    local feedbackInput = EditText(ctx)
+    feedbackInput.setHint("Type your feedback here...")
+    feedbackInput.setInputType(InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_MULTI_LINE)
+    feedbackInput.setMinLines(3)
+    feedbackInput.setMaxLines(5)
+    feedbackLayout.addView(feedbackInput)
+    
+    local sendFeedbackBtn = Button(ctx)
+    sendFeedbackBtn.setText("Send Feedback")
+    sendFeedbackBtn.setBackgroundColor(0xFF4CAF50)
+    feedbackLayout.addView(sendFeedbackBtn)
+    
+    local feedbackDlg = LuaDialog(ctx)
+    feedbackDlg.setTitle("Send Feedback")
+    feedbackDlg.setView(feedbackLayout)
+    feedbackDlg.setCancelable(true)
+    
+    sendFeedbackBtn.onClick = function()
+        local name = nameInput.getText().toString()
+        local whatsapp = whatsappInput.getText().toString()
+        local feedback = feedbackInput.getText().toString()
+        if name == "" or whatsapp == "" or feedback == "" then
+            notify("Please fill all fields")
+            return
+        end
+        if saveFeedbackToFile(name, whatsapp, feedback) then
+            notify("Feedback saved successfully")
+            feedbackDlg.dismiss()
+        else
+            notify("Failed to save feedback")
+        end
+    end
+    
+    sendFeedbackBtn.setOnLongClickListener({
+        onLongClick = function(v)
+            showFeedbackList()
+            return true
+        end
+    })
+    
+    feedbackDlg.show()
+end
+
 function aboutAndSupport()
     vibrate()
     
     local help_views = {}
-    local innerLayout = {
-        LinearLayout;
-        orientation = "vertical";
-        layout_width = "fill";
-        layout_height = "wrap_content";
-        gravity = "center";
-        layout_marginTop = "5dp";
-        {
-            Button;
-            id = "sendFeedbackButton";
-            text = "SEND FEEDBACK";
-            layout_width = "fill";
-            layout_height = "wrap_content";
-            layout_margin = "2dp";
-            textSize = "12sp";
-            padding = "8dp";
-            backgroundColor = "#FF9800";
-            textColor = "#FFFFFF";
-        }
-    }
-    
-    if DEVELOPER_MODE then
-        table.insert(innerLayout, {
-            Button;
-            id = "viewFeedbackButton";
-            text = "VIEW FEEDBACK";
-            layout_width = "fill";
-            layout_height = "wrap_content";
-            layout_margin = "2dp";
-            textSize = "12sp";
-            padding = "8dp";
-            backgroundColor = "#607D8B";
-            textColor = "#FFFFFF";
-        })
-    end
-    
-    table.insert(innerLayout, {
-        Button;
-        id = "joinWhatsAppGroupButton";
-        text = "JOIN WHATSAPP GROUP";
-        layout_width = "fill";
-        layout_height = "wrap_content";
-        layout_margin = "2dp";
-        textSize = "12sp";
-        padding = "8dp";
-        backgroundColor = "#25D366";
-        textColor = "#FFFFFF";
-    })
-    table.insert(innerLayout, {
-        Button;
-        id = "joinYouTubeChannelButton";
-        text = "JOIN YOUTUBE CHANNEL";
-        layout_width = "fill";
-        layout_height = "wrap_content";
-        layout_margin = "2dp";
-        textSize = "12sp";
-        padding = "8dp";
-        backgroundColor = "#FF0000";
-        textColor = "#FFFFFF";
-    })
-    table.insert(innerLayout, {
-        Button;
-        id = "joinTelegramChannelButton";
-        text = "JOIN TELEGRAM CHANNEL";
-        layout_width = "fill";
-        layout_height = "wrap_content";
-        layout_margin = "2dp";
-        textSize = "12sp";
-        padding = "8dp";
-        backgroundColor = "#2196F3";
-        textColor = "#FFFFFF";
-    })
-    table.insert(innerLayout, {
-        Button;
-        id = "goBackButton";
-        text = "GO BACK";
-        layout_width = "fill";
-        layout_height = "wrap_content";
-        layout_margin = "2dp";
-        textSize = "12sp";
-        padding = "8dp";
-        backgroundColor = "#9E9E9E";
-        textColor = "#FFFFFF";
-    })
-    
     local help_layout = {
         LinearLayout;
         orientation = "vertical";
@@ -947,144 +977,99 @@ function aboutAndSupport()
         layout_height = "wrap";
         {
             TextView;
-            text = "Image Recognizer Pro provides AI-powered image recognition using Google Gemini AI.\n\nFeatures:\n• 4 recognition modes (Image Process, Current Screen, Current Item, Extract Text Only)\n• Multi-language support (18+ languages)\n• Google Gemini AI integration\n• Ask questions about your images\n\nFor support or feedback, please use the buttons below.";
+            text = "Image Recognizer Pro\nDeveloped by CSR Official\n\nAI-powered image recognition using Google Gemini AI.\n\nFeatures:\n• 4 recognition modes (Image Process, Current Screen, Current Item, Extract Text Only)\n• Multi-language support (18+ languages)\n• Google Gemini AI integration\n• Ask questions about your images\n\nJoin our community for more useful tools, feedback, and suggestions.";
             textSize = 14;
             textColor = "#666666";
             gravity = "left";
             paddingBottom = "20dp";
         };
         {
+            TextView;
+            text = "Join Our Community";
+            textSize = 16;
+            textColor = "#000000";
+            gravity = "center";
+            paddingBottom = "10dp";
+        };
+        {
             ScrollView;
             layout_width = "fill";
             layout_height = "wrap_content";
-            innerLayout;
+            {
+                LinearLayout;
+                orientation = "vertical";
+                layout_width = "fill";
+                layout_height = "wrap_content";
+                gravity = "center";
+                layout_marginTop = "5dp";
+                {
+                    Button;
+                    id = "joinWhatsAppGroupButton";
+                    text = "JOIN WHATSAPP GROUP";
+                    layout_width = "fill";
+                    layout_height = "wrap_content";
+                    layout_margin = "2dp";
+                    textSize = "12sp";
+                    padding = "8dp";
+                    backgroundColor = "#25D366";
+                    textColor = "#FFFFFF";
+                };
+                {
+                    Button;
+                    id = "joinWhatsAppChannelButton";
+                    text = "JOIN WHATSAPP CHANNEL";
+                    layout_width = "fill";
+                    layout_height = "wrap_content";
+                    layout_margin = "2dp";
+                    textSize = "12sp";
+                    padding = "8dp";
+                    backgroundColor = "#128C7E";
+                    textColor = "#FFFFFF";
+                };
+                {
+                    Button;
+                    id = "subscribeYouTubeButton";
+                    text = "SUBSCRIBE YOUTUBE CHANNEL";
+                    layout_width = "fill";
+                    layout_height = "wrap_content";
+                    layout_margin = "2dp";
+                    textSize = "12sp";
+                    padding = "8dp";
+                    backgroundColor = "#FF0000";
+                    textColor = "#FFFFFF";
+                };
+                {
+                    Button;
+                    id = "sendFeedbackButton";
+                    text = "SEND FEEDBACK";
+                    layout_width = "fill";
+                    layout_height = "wrap_content";
+                    layout_margin = "2dp";
+                    textSize = "12sp";
+                    padding = "8dp";
+                    backgroundColor = "#FF9800";
+                    textColor = "#FFFFFF";
+                };
+                {
+                    Button;
+                    id = "goBackButton";
+                    text = "GO BACK";
+                    layout_width = "fill";
+                    layout_height = "wrap_content";
+                    layout_margin = "2dp";
+                    textSize = "12sp";
+                    padding = "8dp";
+                    backgroundColor = "#9E9E9E";
+                    textColor = "#FFFFFF";
+                };
+            };
         };
     }
     
     local help_dialog = LuaDialog(ctx)
-    help_dialog.setTitle("Developer: John Zeb")
+    help_dialog.setTitle("CSR Official")
     help_dialog.setView(loadlayout(help_layout, help_views))
     help_dialog.setCancelable(true)
-    
-    help_views.sendFeedbackButton.onClick = function()
-        local feedbackLayout = LinearLayout(ctx)
-        feedbackLayout.setOrientation(1)
-        feedbackLayout.setPadding(40, 20, 40, 20)
-        
-        local nameLabel = TextView(ctx)
-        nameLabel.setText("Your Name:")
-        feedbackLayout.addView(nameLabel)
-        
-        local nameInput = EditText(ctx)
-        nameInput.setHint("Enter your name")
-        nameInput.setInputType(InputType.TYPE_CLASS_TEXT)
-        feedbackLayout.addView(nameInput)
-        
-        local numberLabel = TextView(ctx)
-        numberLabel.setText("WhatsApp Number (with country code):")
-        numberLabel.setPadding(0, 15, 0, 0)
-        feedbackLayout.addView(numberLabel)
-        
-        local numberInput = EditText(ctx)
-        numberInput.setHint("e.g., 923154871777")
-        numberInput.setInputType(InputType.TYPE_CLASS_PHONE)
-        feedbackLayout.addView(numberInput)
-        
-        local feedbackLabel = TextView(ctx)
-        feedbackLabel.setText("Feedback:")
-        feedbackLabel.setPadding(0, 15, 0, 0)
-        feedbackLayout.addView(feedbackLabel)
-        
-        local feedbackInput = EditText(ctx)
-        feedbackInput.setHint("Type your feedback here...")
-        feedbackInput.setInputType(InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_MULTI_LINE)
-        feedbackInput.setMinLines(3)
-        feedbackInput.setMaxLines(5)
-        feedbackLayout.addView(feedbackInput)
-        
-        local feedbackDlg = LuaDialog(ctx)
-        feedbackDlg.setTitle("Send Feedback")
-        feedbackDlg.setView(feedbackLayout)
-        feedbackDlg.setPositiveButton("Send", function()
-            local name = nameInput.getText().toString()
-            local number = numberInput.getText().toString()
-            local feedback = feedbackInput.getText().toString()
-            
-            if name == nil or name == "" then
-                notify("Please enter your name")
-                return
-            end
-            if number == nil or number == "" then
-                notify("Please enter your WhatsApp number")
-                return
-            end
-            if feedback == nil or feedback == "" then
-                notify("Please enter your feedback")
-                return
-            end
-            
-            saveFeedback(name, number, feedback)
-            notify("Feedback saved successfully")
-            feedbackDlg.dismiss()
-        end)
-        feedbackDlg.setNegativeButton("Cancel", nil)
-        feedbackDlg.show()
-    end
-    
-    if DEVELOPER_MODE and help_views.viewFeedbackButton then
-        help_views.viewFeedbackButton.onClick = function()
-            local allFeedback = getAllFeedback()
-            if #allFeedback == 0 then
-                notify("No feedback available")
-                return
-            end
-            
-            local items = {}
-            for i, fb in ipairs(allFeedback) do
-                table.insert(items, string.format("From: %s\nNumber: %s\nTime: %s\n\n%s\n---------------------------",
-                    fb.name, fb.number, fb.timestamp, fb.feedback))
-            end
-            
-            local listLayout = LinearLayout(ctx)
-            listLayout.setOrientation(1)
-            listLayout.setPadding(20, 20, 20, 20)
-            
-            local scrollView = ScrollView(ctx)
-            scrollView.setLayoutParams(LinearLayout.LayoutParams(-1, -1))
-            
-            local textView = TextView(ctx)
-            textView.setText(table.concat(items, "\n\n"))
-            textView.setTextSize(14)
-            textView.setPadding(20, 20, 20, 20)
-            textView.setTextColor(0xFF000000)
-            scrollView.addView(textView)
-            listLayout.addView(scrollView)
-            
-            local buttonLayout = LinearLayout(ctx)
-            buttonLayout.setOrientation(0)
-            buttonLayout.setPadding(0, 10, 0, 0)
-            buttonLayout.setLayoutParams(LinearLayout.LayoutParams(-1, -2))
-            
-            local closeBtn = Button(ctx)
-            closeBtn.setText("Close")
-            closeBtn.setLayoutParams(LinearLayout.LayoutParams(-1, -2))
-            closeBtn.setPadding(10, 10, 10, 10)
-            buttonLayout.addView(closeBtn)
-            
-            listLayout.addView(buttonLayout)
-            
-            local viewDlg = LuaDialog(ctx)
-            viewDlg.setTitle("All Feedback")
-            viewDlg.setView(listLayout)
-            viewDlg.setCancelable(true)
-            
-            closeBtn.onClick = function()
-                viewDlg.dismiss()
-            end
-            
-            viewDlg.show()
-        end
-    end
     
     help_views.joinWhatsAppGroupButton.onClick = function()
         local function performActions()
@@ -1093,7 +1078,7 @@ function aboutAndSupport()
                 mainDlg.dismiss()
             end
             local success = pcall(function()
-                local message = "Assalam%20o%20Alaikum.%20I%20hope%20you%20are%20doing%20well.%20I%20would%20like%20to%20join%20your%20WhatsApp%20group.%20Kindly%20share%20the%20instructions.%20group%20rules%20and%20regulations.%20Thank%20you.%20so%20much"
+                local message = "Assalam%20o%20Alaikum.%20I%20would%20like%20to%20join%20your%20WhatsApp%20group."
                 local url = "https://wa.me/923154871777?text=" .. message
                 local intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
                 ctx.startActivity(intent)
@@ -1105,80 +1090,69 @@ function aboutAndSupport()
         if service and service.speak then
             service.speak("Opening WhatsApp Group")
             local handler = Handler(Looper.getMainLooper())
-            handler.postDelayed(Runnable({
-                run = performActions
-            }), 1000)
+            handler.postDelayed(Runnable({ run = performActions }), 1000)
         else
             performActions()
         end
     end
     
-    help_views.joinYouTubeChannelButton.onClick = function()
+    help_views.joinWhatsAppChannelButton.onClick = function()
         local function performActions()
             help_dialog.dismiss()
             if mainDlg then
                 mainDlg.dismiss()
             end
             local success = pcall(function()
-                local url = "https://www.youtube.com/@TechForVI"
+                local url = "https://whatsapp.com/channel/0029VbCJfWSAojYuaMuB9E1t"
                 local intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
                 ctx.startActivity(intent)
             end)
             if not success then
-                notify("Could not open YouTube")
+                notify("Could not open WhatsApp Channel")
+            end
+        end
+        if service and service.speak then
+            service.speak("Opening WhatsApp Channel")
+            local handler = Handler(Looper.getMainLooper())
+            handler.postDelayed(Runnable({ run = performActions }), 1000)
+        else
+            performActions()
+        end
+    end
+    
+    help_views.subscribeYouTubeButton.onClick = function()
+        local function performActions()
+            help_dialog.dismiss()
+            if mainDlg then
+                mainDlg.dismiss()
+            end
+            local success = pcall(function()
+                local url = "https://youtube.com/@csr-official-f5v?si=nwBIaiiFoI8Ix8k5"
+                local intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                ctx.startActivity(intent)
+            end)
+            if not success then
+                notify("Could not open YouTube Channel")
             end
         end
         if service and service.speak then
             service.speak("Opening YouTube Channel")
             local handler = Handler(Looper.getMainLooper())
-            handler.postDelayed(Runnable({
-                run = performActions
-            }), 1000)
+            handler.postDelayed(Runnable({ run = performActions }), 1000)
         else
             performActions()
         end
     end
     
-    help_views.joinTelegramChannelButton.onClick = function()
-        local function performActions()
-            help_dialog.dismiss()
-            if mainDlg then
-                mainDlg.dismiss()
-            end
-            local success = pcall(function()
-                local url = "https://t.me/TechForVI"
-                local intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-                intent.setPackage("org.telegram.messenger")
-                ctx.startActivity(intent)
-            end)
-            if not success then
-                pcall(function()
-                    local url = "https://t.me/TechForVI"
-                    local intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-                    ctx.startActivity(intent)
-                end)
-            end
-        end
-        if service and service.speak then
-            service.speak("Opening Telegram Channel")
-            local handler = Handler(Looper.getMainLooper())
-            handler.postDelayed(Runnable({
-                run = performActions
-            }), 1000)
-        else
-            performActions()
-        end
+    help_views.sendFeedbackButton.onClick = function()
+        showFeedbackDialog()
     end
     
     help_views.goBackButton.onClick = function()
         help_dialog.dismiss()
     end
     
-    help_dialog.setOnCancelListener{
-        onCancel = function()
-            help_dialog.dismiss()
-        end
-    }
+    help_dialog.setOnCancelListener({ onCancel = function() help_dialog.dismiss() end })
     
     help_dialog.show()
 end
@@ -1189,7 +1163,7 @@ function createMainUI()
     layout.setPadding(40, 40, 40, 40)
     
     local devLabel = TextView(ctx)
-    devLabel.setText("Developer: John Zeb")
+    devLabel.setText("Developed by CSR Official")
     devLabel.setGravity(Gravity.CENTER)
     layout.addView(devLabel)
     
@@ -1373,7 +1347,7 @@ function createMainUI()
     layout.addView(bottomLayout)
     
     mainDlg = LuaDialog(ctx)
-    mainDlg.setTitle("Image Recognizer Pro")
+    mainDlg.setTitle("Image Recognizer Pro - CSR Official")
     mainDlg.setView(layout)
     mainDlg.show()
 end
